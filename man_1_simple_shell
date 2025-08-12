@@ -1,50 +1,30 @@
-.TH hsh 1 "February 2025" "Simple Shell Manual"
+.\" Manpage for simple_shell
+.TH simple_shell 1 "August 2025" "Holberton School" "User Commands"
 .SH NAME
-hsh \- simple UNIX command interpreter
+simple_shell \- simple UNIX command interpreter
 .SH SYNOPSIS
-.B hsh
-.br
-[no arguments]
+.B simple_shell
+[\fIcommand\fR]...
 .SH DESCRIPTION
 The
-.B hsh
-program is a simple UNIX command interpreter.
-It reads commands from the standard input and executes them, either in
-interactive mode (reading from a terminal) or in non-interactive mode
-(reading from a pipe or file).
+.B simple_shell
+program is a minimal UNIX command interpreter written in C.
+It reads commands from the standard input and executes them, either by
+running built-in commands or searching for executables in the PATH.
 
-This shell supports:
-.IP \[bu]
-Executing commands given with an absolute or relative path
-.IP \[bu]
-Passing arguments to commands
-.IP \[bu]
-Searching for commands in the directories listed in PATH
-.IP \[bu]
-The built-in commands
-.B exit
-and
-.B env
-
-.SH USAGE
-Interactive mode:
-.PP
-.EX
-$ ./hsh
-$ /bin/ls
-$ ls -l /tmp
-$ env
-$ exit
-.EE
-
-Non-interactive mode:
-.PP
-.EX
-$ echo "/bin/ls" | ./hsh
-.EE
-
-.SH EXIT STATUS
-The shell returns the exit status of the last executed command.
+Features:
+.TP
+* Displays a prompt and waits for the user to type a command.
+.TP
+* Executes commands with arguments.
+.TP
+* Handles absolute and relative paths.
+.TP
+* Handles command lines with arguments separated by spaces or tabs.
+.TP
+* Handles end-of-file (Ctrl-D) to exit.
+.TP
+* Works in both interactive and non-interactive modes.
 
 .SH AUTHOR
 Kevin Voka

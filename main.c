@@ -1,49 +1,42 @@
 #include "main.h"
-
+#include<unistd.h>
+#include<stdio.h>
+#include<stdlib.h>
+#include <stddef.h>
 /**
- * main - simple shell loop (interactive & non-interactive)
- * @ac: arg count
- * @av: arg vector
- * Return: 0 on success
+ * main - Entry point
+ * @argc: argument count
+ * @argv: argument values
+ * Return: Always 0 (Success)
  */
-int main(int ac, char **av)
+int main(void)
 {
-	int interactive = isatty(STDIN_FILENO);
+
 	char *line = NULL;
-	size_t cap = 0;
-	ssize_t r;
-	int cmd_no = 0;
-	(void)ac;
+	size_t buff_size = 0;
+	ssize_t characters = 0;
 
 	while (1)
 	{
-		r = read_line(&line, &cap, interactive);
-		if (r == -1) /* EOF */
-			break;
+		if (isatty(STDIN_FILENO) == 1)
+			write(1, "$ ", 2);
+		characters = getline(&line, &buff_size, stdin);
 
-		if (!is_empty_line(line))
+		if (characters == -1)
 		{
-			int argc = 0;
-			char **argv = tokenize_line(line, &argc);
-
-			if (argv && argv[0])
-			{
-				cmd_no++;
-				/* Built-ins first */
-				if (!is_builtin(argv[0]) || handle_builtin(argv) == 0)
-				{
-					/* If not a builtin, run external */
-					if (is_builtin(argv[0]) == 0) /* exit handled inside */
-					{
-						free_tokens(argv);
-						continue;
-					}
-					execute(argv, av[0], cmd_no);
-				}
-			}
-			free_tokens(argv);
+			if (isatty(STDIN_FILENO) == 1)
+				write(1, "\n", 1);
+			break;
 		}
+
+		if (line[characters - 1] == '\n')
+			line[characters - 1] = '\0';
+		if (*line == '\0')
+			continue;
+		if (command_read(line) == 2)
+			break;
 	}
 	free(line);
+	line = NULL;
 	return (0);
 }
