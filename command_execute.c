@@ -16,7 +16,7 @@ static int run_child(char *exe_path, char **cmd_arr)
 {
 	execve(exe_path, cmd_arr, environ);
 	perror("execve");
-	_exit(126);
+	exit(126);
 }
 
 /**

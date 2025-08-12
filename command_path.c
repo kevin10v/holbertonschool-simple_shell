@@ -1,51 +1,128 @@
 #include "main.h"
 
 /**
- * command_path - Finds the full path of a command
- * @cmd: The command to find
- * Return: The full path of the command
+ * path_is_exec - Checks if a path exists and is executable
+ * @p: File path
+ *
+ * Return: 1 if executable, 0 otherwise
  */
-
-char *command_path(char *cmd)
+static int path_is_exec(const char *p)
 {
-	char *path, *path_copy, *full_path, *token;
-	struct stat buf;
+	struct stat st;
 
-	path = _getenv("PATH");
-	if (path == NULL)
+	if (p == NULL || *p == '\0')
+		return (0);
+	if (stat(p, &st) == -1)
+		return (0);
+	if (S_ISDIR(st.st_mode))
+		return (0);
+	if (access(p, X_OK) == -1)
+		return (0);
+	return (1);
+}
+
+/**
+ * build_path - Builds "<dir>/<cmd>" into a new string
+ * @dir: Directory (may be empty)
+ * @cmd: Command (no '/')
+ *
+ * Return: Newly allocated path (or "./cmd" when dir is empty), or NULL
+ */
+static char *build_path(const char *dir, const char *cmd)
+{
+	size_t dlen = strlen(dir), clen = strlen(cmd), total;
+	char *full;
+
+	if (dlen == 0)
 	{
-		fprintf(stderr, "Path variable not found");
-		return (NULL);
+		total = 2 + 1 + clen + 1; /* "." + "/" + cmd + '\0' */
+		full = malloc(total);
+		if (!full)
+			return (NULL);
+		full[0] = '.';
+		full[1] = '/';
+		memcpy(full + 2, cmd, clen);
+		full[total - 1] = '\0';
+		return (full);
 	}
-	path_copy = strdup(path);
-	if (path_copy == NULL)
+	if (dir[dlen - 1] == '/')
 	{
-		fprintf(stderr, "Error copying path");
-		return (NULL);
+		total = dlen + clen + 1;
+		full = malloc(total);
+		if (!full)
+			return (NULL);
+		memcpy(full, dir, dlen);
+		memcpy(full + dlen, cmd, clen);
+		full[total - 1] = '\0';
+		return (full);
 	}
-	token = strtok(path_copy, ":");
-	while (token != NULL)
+	total = dlen + 1 + clen + 1;
+	full = malloc(total);
+	if (!full)
+		return (NULL);
+	memcpy(full, dir, dlen);
+	full[dlen] = '/';
+	memcpy(full + dlen + 1, cmd, clen);
+	full[total - 1] = '\0';
+	return (full);
+}
+
+/**
+ * search_in_path - Searches PATH for cmd (no slash in cmd)
+ * @cmd: Command name (no '/')
+ * @path: PATH value (colon-separated). If NULL/empty, returns NULL.
+ *
+ * Return: Newly allocated absolute path if found, else NULL
+ */
+static char *search_in_path(const char *cmd, const char *path)
+{
+	char *dup, *tok, *full;
+
+	if (!path || path[0] == '\0')
+		return (NULL);
+
+	dup = strdup_safe(path);
+	if (!dup)
+		return (NULL);
+
+	for (tok = strtok(dup, ":"); tok != NULL; tok = strtok(NULL, ":"))
 	{
-		full_path = malloc(strlen(token) + strlen(cmd) + 2);
-		if (full_path == NULL)
+		full = build_path(tok, cmd);
+		if (!full)
 		{
-			fprintf(stderr, "Error allocating full path");
-			free(path_copy);
+			free(dup);
 			return (NULL);
 		}
-		strcpy(full_path, token);
-		strcat(full_path, "/");
-		strcat(full_path, cmd);
-		if (stat(full_path, &buf) == 0)
+		if (path_is_exec(full))
 		{
-			free(path_copy);
-			return (full_path);
+			free(dup);
+			return (full);
 		}
-		free(full_path);
-		token = strtok(NULL, ":");
+		free(full);
 	}
-	free(path_copy);
-	if (stat(cmd, &buf) == 0)
-		return (strdup(cmd));
+	free(dup);
 	return (NULL);
+}
+
+/**
+ * command_path - Resolve a command to an executable path
+ * @cmd: Command (may contain '/')
+ *
+ * Return: Newly allocated resolved path (caller frees), or NULL if not found
+ */
+char *command_path(char *cmd)
+{
+	char *path, *resolved;
+
+	if (cmd == NULL || *cmd == '\0')
+		return (NULL);
+
+	/* If contains '/', try directly (works even when PATH is unset) */
+	if (strchr(cmd, '/') != NULL)
+		return (path_is_exec(cmd) ? strdup_safe(cmd) : NULL);
+
+	/* Otherwise search PATH */
+	path = _getenv("PATH");
+	resolved = search_in_path(cmd, path);
+	return (resolved);
 }

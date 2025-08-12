@@ -25,6 +25,8 @@ void trim_whitespace(char *str);
 void strip_newline(char *str);
 char **split_line(char *line);
 void free_tokens(char **tokens);
+char *strdup_safe(const char *s);
+
 
 
 #endif /* MAIN_H */
