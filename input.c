@@ -50,7 +50,7 @@ int is_empty_line(const char *s)
 }
 
 /**
- * append_token - Appends a token to argv, growing capacity if needed
+ * append_token - Appends a token to argv (grows with malloc+memcpy)
  * @argvp: Address of argv pointer
  * @cap: Address of current capacity (pointer count)
  * @idx: Address of next insert position
@@ -61,12 +61,9 @@ int is_empty_line(const char *s)
 static int append_token(char ***argvp, size_t *cap, size_t *idx,
 			const char *tok)
 {
-	char **arr, **tmp;
-	size_t need, ncap;
+	char **arr = *argvp, **newp;
+	size_t need = *idx + 2, ncap;
 	char *dup;
-
-	arr = *argvp;
-	need = *idx + 2;
 
 	if (*cap < need)
 	{
@@ -74,11 +71,23 @@ static int append_token(char ***argvp, size_t *cap, size_t *idx,
 		while (ncap < need)
 			ncap *= 2;
 
-		tmp = realloc(arr, sizeof(char *) * ncap);
-		if (tmp == NULL)
+		newp = malloc(sizeof(char *) * ncap);
+		if (newp == NULL)
 			return (-1);
 
-		arr = tmp;
+		if (arr != NULL && *cap > 0)
+		{
+			size_t copy = (*idx + 1 <= *cap) ? (*idx + 1) : *cap;
+
+			memcpy(newp, arr, sizeof(char *) * copy);
+		}
+		else
+		{
+			newp[0] = NULL;
+		}
+
+		free(arr);
+		arr = newp;
 		*argvp = arr;
 		*cap = ncap;
 	}
@@ -90,7 +99,6 @@ static int append_token(char ***argvp, size_t *cap, size_t *idx,
 	arr[*idx] = dup;
 	(*idx)++;
 	arr[*idx] = NULL;
-
 	return (0);
 }
 
