@@ -1,14 +1,30 @@
 #include "shell.h"
 
 
+static char *_strdup_local(const char *s)
+{
+    size_t len;
+    char *p;
+
+    if (!s)
+        return NULL;
+    len = strlen(s);
+    p = (char *)malloc(len + 1);
+    if (!p)
+        return NULL;
+    memcpy(p, s, len + 1);
+    return p;
+}
+
 char *find_env_value(char **env, const char *name)
 {
-    size_t nlen = strlen(name);
+    size_t nlen;
     int i;
 
     if (!env || !name)
         return NULL;
 
+    nlen = strlen(name);
     for (i = 0; env[i]; i++)
     {
         if (!strncmp(env[i], name, nlen) && env[i][nlen] == '=')
@@ -20,11 +36,16 @@ char *find_env_value(char **env, const char *name)
 
 static char *join_path(const char *dir, const char *cmd)
 {
-    size_t len = strlen(dir) + 1 + strlen(cmd) + 1;
-    char *out = malloc(len);
-    if (!out) return NULL;
+    size_t len;
+    char *out;
 
-    strcpy(out, dir);
+    len = strlen(dir) + 1 + strlen(cmd) + 1;
+    out = (char *)malloc(len);
+    if (!out)
+        return NULL;
+
+    out[0] = '\0';
+    strcat(out, dir);
     strcat(out, "/");
     strcat(out, cmd);
     return out;
@@ -32,41 +53,91 @@ static char *join_path(const char *dir, const char *cmd)
 
 /*
  * resolve_command:
- *  - Nëse cmd ka '/', thjesht kontrollo access(X_OK).
- *  - Përndryshe, kërko në PATH. Nëse PATH mungon ose bosh → NULL.
- *  - Kthen string të ri me malloc (rrugë të plotë) ose NULL.
+ *  - If cmd contains '/', check access(X_OK) and return a copy if executable.
+ *  - Otherwise, search in PATH. Empty PATH entries map to "." per POSIX.
+ *  - Returns malloc'ed full path or NULL if not found.
  */
 char *resolve_command(char *cmd, char **env)
 {
-    char *path, *dup, *dir, *full;
+    char *path;
+    char *norm;
+    char *p;
+    char *dir;
+    char *full;
+    size_t i, j, len;
 
     if (!cmd || !*cmd)
         return NULL;
 
 
     if (strchr(cmd, '/'))
-        return (access(cmd, X_OK) == 0) ? strdup(cmd) : NULL;
+    {
+        if (access(cmd, X_OK) == 0)
+            return _strdup_local(cmd);
+        return NULL;
+    }
 
     path = find_env_value(env, "PATH");
     if (!path || !*path)
         return NULL;
 
-    dup = strdup(path);
-    if (!dup)
+
+    len = strlen(path);
+    norm = (char *)malloc(len * 2 + 3);
+    if (!norm)
         return NULL;
 
-    dir = strtok(dup, ":");
-    while (dir)
+    j = 0;
+    if (path[0] == ':')
     {
-        full = join_path(dir, cmd);
-        if (full && access(full, X_OK) == 0)
+        norm[j++] = '.';
+        norm[j++] = ':';
+        i = 1;
+    }
+    else
+    {
+        i = 0;
+    }
+
+    while (i < len)
+    {
+        if (path[i] == ':')
         {
-            free(dup);
+            norm[j++] = ':';
+            if (i + 1 >= len || path[i + 1] == ':')
+                norm[j++] = '.';
+            i++;
+        }
+        else
+        {
+            norm[j++] = path[i++];
+        }
+    }
+    if (j > 0 && norm[j - 1] == ':')
+        norm[j++] = '.';
+
+    norm[j] = '\0';
+
+    
+    p = strtok(norm, ":");
+    while (p)
+    {
+        dir = p;
+        full = join_path(dir, cmd);
+        if (!full)
+        {
+            free(norm);
+            return NULL;
+        }
+        if (access(full, X_OK) == 0)
+        {
+            free(norm);
             return full;
         }
         free(full);
-        dir = strtok(NULL, ":");
+        p = strtok(NULL, ":");
     }
-    free(dup);
+
+    free(norm);
     return NULL;
 }
