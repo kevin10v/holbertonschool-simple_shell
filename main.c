@@ -1,42 +1,68 @@
-#include "main.h"
-#include<unistd.h>
-#include<stdio.h>
-#include<stdlib.h>
-#include <stddef.h>
-/**
- * main - Entry point
- * @argc: argument count
- * @argv: argument values
- * Return: Always 0 (Success)
- */
-int main(void)
+#include "shell.h"
+
+int main(int argc, char **argv)
 {
+    char *line;
+    size_t n;
+    ssize_t r;
+    int last_status;
+    int interactive;
 
-	char *line = NULL;
-	size_t buff_size = 0;
-	ssize_t characters = 0;
+    (void)argc;
 
-	while (1)
-	{
-		if (isatty(STDIN_FILENO) == 1)
-			write(1, "$ ", 2);
-		characters = getline(&line, &buff_size, stdin);
+    line = NULL;
+    n = 0;
+    last_status = 0;
+    interactive = isatty(STDIN_FILENO);
 
-		if (characters == -1)
-		{
-			if (isatty(STDIN_FILENO) == 1)
-				write(1, "\n", 1);
-			break;
-		}
+    while (1)
+    {
+        char **args;
 
-		if (line[characters - 1] == '\n')
-			line[characters - 1] = '\0';
-		if (*line == '\0')
-			continue;
-		if (command_read(line) == 2)
-			break;
-	}
-	free(line);
-	line = NULL;
-	return (0);
+        if (interactive)
+            write(STDOUT_FILENO, "($) ", 4);
+
+        r = getline(&line, &n, stdin);
+        if (r == -1)
+        {
+            if (interactive)
+                write(STDOUT_FILENO, "\n", 1);
+            break;
+        }
+
+        args = split_line(line);
+        if (!args)
+            continue;
+
+        if (!args[0])
+        {
+            free_argv(args);
+            continue;
+        }
+
+        if (strcmp(args[0], "exit") == 0)
+        {
+            free_argv(args);
+            free(line);
+            exit(last_status);
+        }
+        else if (strcmp(args[0], "env") == 0)
+        {
+            int i;
+            for (i = 0; environ && environ[i]; i++)
+            {
+                write(STDOUT_FILENO, environ[i], strlen(environ[i]));
+                write(STDOUT_FILENO, "\n", 1);
+            }
+            free_argv(args);
+            continue;
+        }
+
+        execute_command(args, environ, argv[0] ? argv[0] : "hsh", &last_status);
+
+        free_argv(args);
+    }
+
+    free(line);
+    return last_status;
 }
